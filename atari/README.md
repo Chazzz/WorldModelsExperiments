@@ -2,7 +2,7 @@
 
 Completely untested probably incomplete step by step instructions of reproducing Atari experiment (please submit pull requests and/or issues with fix!).
 
-
+Thanks to Lisheng Wu (@NoListen) for being the first to push a fork of World Models to GitHub with Atari compatibility.
 
 # Notes
 
