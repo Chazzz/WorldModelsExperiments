@@ -1,20 +1,17 @@
-# CarRacing Experiments
+# Atari Experiments
 
-Step by step instructions of reproducing CarRacing experiment.
+Completely untested probably incomplete step by step instructions of reproducing Atari experiment (please submit pull requests and/or issues with fix!).
+
+Thanks to Lisheng Wu (@NoListen) for being the first to push a fork of World Models to GitHub with Atari compatibility.
 
 # Notes
 
--TensorFlow 1.8.0
+I'm haven't been super careful matching dependencies, but these should get you most of the way there...
 
--NumPy 1.13.3 (1.14 has some annoying warning)
-
--OpenAI Gym 0.9.4 (have not tested 1.0+, big gym api changes)
-
--cma 2.2.0, basically 2+ should work
-
--Python 3, although 2 might work.
-
--mpi4py 2 (see https://github.com/hardmaru/estool)
+```
+sudo apt-get update && sudo apt-get install cmake zlib1g-dev
+pip install absl-py atari-py gym opencv-python tensorflow-gpu
+```
 
 # Reading
 
@@ -24,7 +21,7 @@ http://blog.otoro.net/2017/11/12/evolving-stable-strategies/
 
 http://blog.otoro.net/2017/10/29/visual-evolution-strategies/
 
-# Instructions for running the pretrained model already in repo
+# Instructions for running the pretrained model already in repo (WON"T WORK)
 
 Play using your keyboard (note: set mac os x screen resolution to highest):
 
@@ -44,7 +41,7 @@ To run model in generated environment, and visualize results:
 
 `python dream_model.py log/carracing.cma.16.64.best.json`
 
-# Instructions for training everything from scratch
+# Instructions for training everything from scratch (WON"T WORK)
 
 Extract 10k random episodes by running the following on a 64-core CPU machine (note that since it uses OpenGL, it runs a headless X session for each worker job, which was needed in Ubuntu VMs):
 
@@ -95,4 +92,5 @@ If you find this project useful in an academic setting, please cite:
 
 # Licence
 
-MIT
+Atari preprocessing code is from google/dopamine Github project and is licensed via Apache 2.
+All other code is licensed via MIT
