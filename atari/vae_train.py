@@ -22,7 +22,8 @@ kl_tolerance=0.5
 # Parameters for training
 NUM_EPOCH = 10
 DATA_DIR = "record"
-IMAGE_DATA_DIR = "record_image"
+# IMAGE_DATA_DIR = "record_image"
+IMAGE_DATA_DIR = "record_image_uncompressed"
 if not os.path.exists(IMAGE_DATA_DIR):
     os.makedirs(IMAGE_DATA_DIR)
 
@@ -35,8 +36,8 @@ def unbundle_episode(filename, source_dir, dest_dir):
   for i, image in enumerate(raw_data):
     filename_out = os.path.join(dest_dir, filename+"-"+str(i))
     if not os.path.exists(filename_out+".npz"):
-      print(filename_out, "doesn't exist")
-      # np.savez_compressed(filename_out, obs=[image])
+      # print(filename_out, "doesn't exist")
+      np.savez(filename_out, obs=[image])
 
 def count_length_of_filelist(filelist, file_dir):
   # although this is inefficient, much faster than doing np.concatenate([giant list of blobs])..
@@ -72,7 +73,7 @@ def create_dataset(filelist, N=10, M=1000): # N is 10000 episodes, M is 1000 num
     data = data[:idx]
   return data
 
-def create_dataset_lazy(filelist, N=6000*1000, M=1): #N=6000*1000
+def create_dataset_lazy(filelist, N=1000*1000, M=1): #N=6000*1000
   data = []
   idx = 0
   for i in range(N):
@@ -98,10 +99,21 @@ def load_single_image(single_image):
   raw_data = np.load(os.path.join(IMAGE_DATA_DIR, filename))['obs']
   return raw_data[index]
 
+def load_single_image_2(data_and_image):
+  data, (filename, index) = data_and_image
+  raw_data = np.load(os.path.join(IMAGE_DATA_DIR, filename))['obs']
+  data = raw_data[index]
+
 import concurrent.futures
+def load_batch_lazy_parallel(imagelists):
+  with concurrent.futures.ProcessPoolExecutor() as executor:
+    batches = executor.map(load_batch_lazy, imagelists)
+  return batches
+
 def load_batch_lazy(imagelist):
   data = np.zeros((len(imagelist), 64, 64, 1), dtype=np.uint8)
   # with concurrent.futures.ProcessPoolExecutor() as executor:
+    # executor.map(load_single_image_2, zip(data, imagelist))
     # for i, raw_data in enumerate(executor.map(load_single_image, imagelist)):
       # data[i] = raw_data
   # print(np.array_equal(data, np.zeros((len(imagelist), 64, 64, 1), dtype=np.uint8)))
@@ -123,12 +135,15 @@ def render_dataset(dataset):
 lazy = True
 if lazy:
   filelist = os.listdir(IMAGE_DATA_DIR)
-  if len(filelist) < 1000*1000:
+  if len(filelist) < 6000*1000:
     print("adding more images to image data directory")
     filelist = os.listdir(DATA_DIR)
     filelist.sort()
     for file in filelist:
       unbundle_episode(file, DATA_DIR, IMAGE_DATA_DIR)
+      if len(os.listdir(IMAGE_DATA_DIR)) > 6000*1000:
+        raise Exception("aaaaaa")
+        break
     filelist = os.listdir(IMAGE_DATA_DIR)
   print("total images:", len(filelist))
   # print("check total number of images:", count_length_of_filelist(filelist, IMAGE_DATA_DIR))
@@ -143,15 +158,22 @@ else:
 # print num_batches:
 total_length = len(dataset)
 num_batches = int(np.floor(total_length/batch_size))
+batch_group_size = 10000
+num_batches = num_batches-num_batches%batch_group_size
 print("num_batches", num_batches)
 
 import time
 t0 = time.time()
 for epoch in [0]:#range(NUM_EPOCH):
   np.random.shuffle(dataset)
-  for idx in range(num_batches):
-    if lazy:
-      batch = load_batch_lazy(dataset[idx*batch_size:(idx+1)*batch_size])
+
+
+  # if lazy:
+    # ranges = [dataset[idx*batch_size:(idx+1)*batch_size] for idx in range(num_batches)]
+    # batches = load_batch_lazy_parallel(ranges)
+  # for idx in range(num_batches):
+    # if lazy:
+      # batch = load_batch_lazy(dataset[idx*batch_size:(idx+1)*batch_size])
 print(time.time()-t0)
 
 
@@ -173,24 +195,39 @@ vae = ConvVAE(z_size=z_size,
 print("train", "step", "loss", "recon_loss", "kl_loss")
 for epoch in range(NUM_EPOCH):
   np.random.shuffle(dataset)
-  for idx in range(num_batches):
-    if lazy:
-      batch = load_batch_lazy(dataset[idx*batch_size:(idx+1)*batch_size])
-    else:
+  if lazy:
+    for batch_group in range(0, num_batches, batch_group_size):
+      ranges = [dataset[idx*batch_size:(idx+1)*batch_size] for idx in range(batch_group, batch_group+batch_group_size)]
+      batches = load_batch_lazy_parallel(ranges)
+      for batch in batches:
+        obs = batch.astype(np.float)/255.0
+
+        feed = {vae.x: obs,}
+
+        (train_loss, r_loss, kl_loss, train_step, _) = vae.sess.run([
+          vae.loss, vae.r_loss, vae.kl_loss, vae.global_step, vae.train_op
+        ], feed)
+      
+        if ((train_step+1) % 500 == 0):
+          print("step", (train_step+1), train_loss, r_loss, kl_loss)
+        if ((train_step+1) % 5000 == 0):
+          vae.save_json("tf_vae/vae.json")
+  else:
+    for idx in range(num_batches):
       batch = dataset[idx*batch_size:(idx+1)*batch_size]
 
-    obs = batch.astype(np.float)/255.0
+      obs = batch.astype(np.float)/255.0
 
-    feed = {vae.x: obs,}
+      feed = {vae.x: obs,}
 
-    (train_loss, r_loss, kl_loss, train_step, _) = vae.sess.run([
-      vae.loss, vae.r_loss, vae.kl_loss, vae.global_step, vae.train_op
-    ], feed)
-  
-    if ((train_step+1) % 500 == 0):
-      print("step", (train_step+1), train_loss, r_loss, kl_loss)
-    if ((train_step+1) % 5000 == 0):
-      vae.save_json("tf_vae/vae.json")
+      (train_loss, r_loss, kl_loss, train_step, _) = vae.sess.run([
+        vae.loss, vae.r_loss, vae.kl_loss, vae.global_step, vae.train_op
+      ], feed)
+    
+      if ((train_step+1) % 500 == 0):
+        print("step", (train_step+1), train_loss, r_loss, kl_loss)
+      if ((train_step+1) % 5000 == 0):
+        vae.save_json("tf_vae/vae.json")
 
 # finished, final model:
 vae.save_json("tf_vae/vae.json")
