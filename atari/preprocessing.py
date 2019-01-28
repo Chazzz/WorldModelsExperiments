@@ -154,7 +154,7 @@ class AtariPreprocessing(object):
     """
     accumulated_reward = 0.
 
-    print(action)
+    # print(action)
     for time_step in range(self.frame_skip):
       # We bypass the Gym observation altogether and directly fetch the
       # grayscale image from the ALE. This is a little faster.
