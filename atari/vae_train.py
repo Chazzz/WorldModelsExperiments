@@ -73,7 +73,7 @@ def create_dataset(filelist, N=10, M=1000): # N is 10000 episodes, M is 1000 num
     data = data[:idx]
   return data
 
-def create_dataset_lazy(filelist, N=1000*1000, M=1): #N=6000*1000
+def create_dataset_lazy(filelist, N=6000*1000, M=1): #N=6000*1000
   data = []
   idx = 0
   for i in range(N):
@@ -135,15 +135,16 @@ def render_dataset(dataset):
 lazy = True
 if lazy:
   filelist = os.listdir(IMAGE_DATA_DIR)
-  if len(filelist) < 6000*1000:
+  if len(filelist) < 10000*1000:
     print("adding more images to image data directory")
     filelist = os.listdir(DATA_DIR)
     filelist.sort()
-    for file in filelist:
-      unbundle_episode(file, DATA_DIR, IMAGE_DATA_DIR)
-      if len(os.listdir(IMAGE_DATA_DIR)) > 6000*1000:
-        raise Exception("aaaaaa")
-        break
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+      executor.map(unbundle_episode, filelist, [DATA_DIR for file in filelist], [IMAGE_DATA_DIR for file in filelist])
+    # for file in filelist:
+      # unbundle_episode(file, DATA_DIR, IMAGE_DATA_DIR)
+      # if len(os.listdir(IMAGE_DATA_DIR)) > 10000*1000:
+        # break
     filelist = os.listdir(IMAGE_DATA_DIR)
   print("total images:", len(filelist))
   # print("check total number of images:", count_length_of_filelist(filelist, IMAGE_DATA_DIR))
