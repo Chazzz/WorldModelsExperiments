@@ -43,10 +43,13 @@ class ConvVAEOH(object):
       # '''
       # Encoder
       h = tf.layers.conv2d(self.x, 32, 4, strides=2, padding="SAME", activation=tf.nn.relu, name="enc_conv1") #4x4
-      print(h.get_shape())
+      # print(h.get_shape())
       h = tf.layers.conv2d(h, 64, 4, strides=2, padding="SAME", activation=tf.nn.relu, name="enc_conv2") #2x2
-      print(h.get_shape())
+      # print(h.get_shape())
       h = tf.reshape(h, [-1, 2*2*64])
+      # self.z = tf.layers.dense(h, self.z_size, name="enc_fc_mu")
+      # '''
+      # '''
 
       # VAE
       self.mu = tf.layers.dense(h, self.z_size, name="enc_fc_mu")
@@ -54,12 +57,19 @@ class ConvVAEOH(object):
       self.sigma = tf.math.softplus(self.logvar / 2.0)
       self.epsilon = tf.random_normal([self.batch_size, self.z_size])
       self.z = self.mu + self.sigma * self.epsilon
+      # '''
 
       # Decoder
-      h = tf.layers.dense(self.z, 4*64, name="dec_fc")
-      h = tf.reshape(h, [-1, 2, 2, 64]) #2x2
-      h = tf.layers.conv2d_transpose(h, 32, 4, strides=1, activation=tf.nn.relu, name="dec_deconv3") #4x4
-      self.y = tf.layers.conv2d_transpose(h, 1, 4, strides=1, activation=tf.nn.sigmoid, name="dec_deconv4") #8x8
+      # hack = tf.layers.dense(self.z, 64, activation = tf.nn.sigmoid)
+      # hack = tf.layers.dense(hack, 64, activation=tf.nn.sigmoid)
+      # self.y = tf.reshape(hack, [-1, 8, 8, 1]) # works, is not amazing
+      h = tf.layers.dense(self.z, 4*64, name="dec_fc", activation = tf.nn.sigmoid)
+      h = tf.reshape(h, [-1, 1, 1, 4*64]) #2x2
+      # self.y = tf.layers.conv2d_transpose(h, 1, 8, strides=2, padding="VALID", activation=tf.nn.sigmoid, name="dec_deconv_single") #8x8
+      h = tf.layers.conv2d_transpose(h, 32, 4, strides=2, padding="SAME", activation=tf.nn.sigmoid, name="dec_deconv2") #4x4
+      h = tf.layers.conv2d_transpose(h, 8, 4, strides=2, padding="SAME", activation=tf.nn.sigmoid, name="dec_deconv3") #4x4
+      self.y = tf.layers.conv2d_transpose(h, 1, 4, strides=2, padding="SAME", activation=tf.nn.sigmoid, name="dec_deconv4") #8x8
+      # self.y = tf.layers.conv2d(h, 1, 4, strides=1, padding="SAME", activation=tf.nn.relu, name="dec_conv") #8x8
       print("one_hot result shape:", self.y.get_shape())
       # '''
       
@@ -70,11 +80,16 @@ class ConvVAEOH(object):
         eps = 1e-6 # avoid taking log of zero
         
         # reconstruction loss
-        self.r_loss = tf.reduce_sum(
+        self.r_loss_mean = tf.reduce_sum(
           tf.square(self.x - self.y),
           reduction_indices = [1,2,3]
         )
-        self.r_loss = tf.reduce_mean(self.r_loss)
+        # self.r_loss_mean = tf.reduce_sum(
+          # tf.square(self.x - self.y),
+          # reduction_indices = [1,2,3]
+        # )
+        self.r_loss = tf.reduce_mean(self.r_loss_mean)
+        self.r_loss_mean = self.x[0] - self.y[0] 
 
         '''
         # augmented kl loss per dim

@@ -9,8 +9,9 @@ os.environ["CUDA_VISIBLE_DEVICES"]="0" # can just override for multi-gpu systems
 import tensorflow as tf
 import random
 import numpy as np
-from scipy.misc import imsave
+import scipy.misc
 from utils import pad_num
+import time
 np.set_printoptions(precision=4, edgeitems=6, linewidth=100, suppress=True)
 
 from vae.vae_onehot import ConvVAEOH, reset_graph
@@ -22,7 +23,7 @@ learning_rate=0.0001
 kl_tolerance=0.05 #was 0.5
 
 # Parameters for training
-NUM_EPOCH = 20000
+NUM_EPOCH = 50000
 
 # poorly coded global
 side_length = 8
@@ -35,7 +36,7 @@ def make_onehot_dataset(width, height):
   index = 0
   for i in range(height):
     for j in range(width):
-      dataset[index][i][j][0] = 1.0
+      dataset[index][i][j][0] = 01.0
       index += 1
   return dataset
 
@@ -59,27 +60,35 @@ if load_checkpoint:
 
 # train loop:
 print("train", "step", "loss", "recon_loss")
-num_right = 0
+t0 = time.time()
 for epoch in range(NUM_EPOCH):
   np.random.shuffle(dataset)
 
   for idx in range(num_batches):
     batch = dataset[idx*batch_size:(idx+1)*batch_size]
 
-    obs = batch.astype(np.float)/255.0
+    obs = batch.astype(np.float)#/255.0
 
     feed = {vae.x: obs,}
 
     # (train_loss, r_loss, kl_loss, train_step, _) = vae.sess.run([
       # vae.loss, vae.r_loss, vae.kl_loss, vae.global_step, vae.train_op
     # ], feed)
-    (train_loss, r_loss, train_step, _) = vae.sess.run([
-      vae.loss, vae.r_loss, vae.global_step, vae.train_op
+    (train_loss, r_loss, rls, x, y, train_step, _) = vae.sess.run([
+      vae.loss, vae.r_loss, vae.r_loss_mean, vae.x, vae.y, vae.global_step, vae.train_op
     ], feed)
   
     if ((train_step+1) % 500 == 0):
       print("step", (train_step+1), train_loss, r_loss)#, kl_loss)
     if ((train_step+1) % 5000 == 0):
+      squares_hit = 0
+      for i in range(len(y)):
+        for j in range(len(x)):
+          if y[i][j//side_length][j%side_length] > 0.5 and x[i][j//side_length][j%side_length] > 0.5:
+            squares_hit += 1
+      print("time:", time.time()-t0)
+      print("total hot:", squares_hit, "/", side_length**2)
+      # print(x[0], y[0])
       vae.save_json("tf_vae/vae_oh.json")
 
 # finished, final model:
@@ -93,6 +102,13 @@ if not os.path.exists(output_dir):
 ordered_dataset = make_onehot_dataset(side_length, side_length)
 batch_z = vae.encode(ordered_dataset)
 reconstruct = vae.decode(batch_z)
+print((255.*reconstruct[0]).reshape(side_length, side_length))
+squares_hit = 0
 for i in range(len(ordered_dataset)):
-  imsave(output_dir+'/%s.png' % pad_num(i), 255.*ordered_dataset[i].reshape(side_length, side_length))
-  imsave(output_dir+'/%s_vae.png' % pad_num(i), 255.*reconstruct[i].reshape(side_length, side_length))
+  if reconstruct[i][i//side_length][i%side_length] > 0.5:
+    squares_hit += 1
+  scipy.misc.toimage(ordered_dataset[i].reshape(side_length, side_length), cmin=0.0, cmax=1.0).save(output_dir+'/%s.png' % pad_num(i))
+  scipy.misc.toimage(reconstruct[i].reshape(side_length, side_length), cmin=0.0, cmax=1.0).save(output_dir+'/%s_vae.png' % pad_num(i))
+  # imsave(output_dir+'/%s.png' % pad_num(i), 255.*ordered_dataset[i].reshape(side_length, side_length))
+  # imsave(output_dir+'/%s_vae.png' % pad_num(i), reconstruct[0].reshape(side_length, side_length))
+print("total hot:", squares_hit, "/", side_length**2)
