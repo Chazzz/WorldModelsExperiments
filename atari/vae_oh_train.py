@@ -17,13 +17,13 @@ np.set_printoptions(precision=4, edgeitems=6, linewidth=100, suppress=True)
 from vae.vae_onehot import ConvVAEOH, reset_graph
 
 # Hyperparameters for ConvVAE
-z_size=32
+z_size=32*2
 batch_size=300
 learning_rate=0.0001
-kl_tolerance=0.05 #was 0.5
+kl_tolerance=0.5 #was 0.5
 
 # Parameters for training
-NUM_EPOCH = 50000
+NUM_EPOCH = 100000
 
 # poorly coded global
 side_length = 8
@@ -86,8 +86,8 @@ for epoch in range(NUM_EPOCH):
         for j in range(len(x)):
           if y[i][j//side_length][j%side_length] > 0.5 and x[i][j//side_length][j%side_length] > 0.5:
             squares_hit += 1
-      print("time:", time.time()-t0)
-      print("total hot:", squares_hit, "/", side_length**2)
+      # print("time:", time.time()-t0)
+      print(time.time()-t0, "total hot:", squares_hit, "/", side_length**2)
       # print(x[0], y[0])
       vae.save_json("tf_vae/vae_oh.json")
 
