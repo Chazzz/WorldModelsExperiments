@@ -13,7 +13,7 @@ DATA_DIR = "record"
 model_path_name = "tf_vae"
 output_dir = "vae_test_result"
 
-z_size=32
+z_size=32*2
 
 filelist = os.listdir(DATA_DIR)
 filelist = [f for f in filelist if '.npz' in f]
@@ -30,7 +30,7 @@ vae = ConvVAE(z_size=z_size,
               reuse=False,
               gpu_mode=False)
 
-vae.load_json(os.path.join(model_path_name, 'vae.json'))
+vae.load_json(os.path.join(model_path_name, 'vae_10k_deep.json'))
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)

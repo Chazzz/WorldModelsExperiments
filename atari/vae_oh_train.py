@@ -17,7 +17,7 @@ np.set_printoptions(precision=4, edgeitems=6, linewidth=100, suppress=True)
 from vae.vae_onehot import ConvVAEOH, reset_graph
 
 # Hyperparameters for ConvVAE
-z_size=32*2
+z_size=16
 batch_size=300
 learning_rate=0.0001
 kl_tolerance=0.5 #was 0.5
@@ -61,6 +61,7 @@ if load_checkpoint:
 # train loop:
 print("train", "step", "loss", "recon_loss")
 t0 = time.time()
+first_100 = -1
 for epoch in range(NUM_EPOCH):
   np.random.shuffle(dataset)
 
@@ -90,6 +91,11 @@ for epoch in range(NUM_EPOCH):
       print(time.time()-t0, "total hot:", squares_hit, "/", side_length**2)
       # print(x[0], y[0])
       vae.save_json("tf_vae/vae_oh.json")
+      if squares_hit == side_length**2:
+        first_100 = train_step+1
+        break
+  if first_100 != -1:
+    break
 
 # finished, final model:
 vae.save_json("tf_vae/vae_oh.json")
@@ -101,14 +107,20 @@ if not os.path.exists(output_dir):
 
 ordered_dataset = make_onehot_dataset(side_length, side_length)
 batch_z = vae.encode(ordered_dataset)
+# print("z for all 64 outputs")
+# print(batch_z)
 reconstruct = vae.decode(batch_z)
 print((255.*reconstruct[0]).reshape(side_length, side_length))
 squares_hit = 0
+missing = []
 for i in range(len(ordered_dataset)):
   if reconstruct[i][i//side_length][i%side_length] > 0.5:
     squares_hit += 1
+  else:
+    missing.append(i)
   scipy.misc.toimage(ordered_dataset[i].reshape(side_length, side_length), cmin=0.0, cmax=1.0).save(output_dir+'/%s.png' % pad_num(i))
   scipy.misc.toimage(reconstruct[i].reshape(side_length, side_length), cmin=0.0, cmax=1.0).save(output_dir+'/%s_vae.png' % pad_num(i))
   # imsave(output_dir+'/%s.png' % pad_num(i), 255.*ordered_dataset[i].reshape(side_length, side_length))
   # imsave(output_dir+'/%s_vae.png' % pad_num(i), reconstruct[0].reshape(side_length, side_length))
 print("total hot:", squares_hit, "/", side_length**2)
+print("missing:", missing)

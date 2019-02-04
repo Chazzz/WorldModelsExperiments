@@ -48,11 +48,11 @@ class ConvVAE(object):
       self.z = self.mu + self.sigma * self.epsilon
 
       # Decoder
-      h = tf.layers.dense(self.z, 4*256, name="dec_fc")
+      h = tf.layers.dense(self.z, 4*256, name="dec_fc", activation=tf.nn.tanh)
       h = tf.reshape(h, [-1, 1, 1, 4*256])
-      h = tf.layers.conv2d_transpose(h, 128, 5, strides=2, activation=tf.nn.relu, name="dec_deconv1")
-      h = tf.layers.conv2d_transpose(h, 64, 5, strides=2, activation=tf.nn.relu, name="dec_deconv2")
-      h = tf.layers.conv2d_transpose(h, 32, 6, strides=2, activation=tf.nn.relu, name="dec_deconv3")
+      h = tf.layers.conv2d_transpose(h, 128*2, 5, strides=2, activation=tf.nn.tanh, name="dec_deconv1")
+      h = tf.layers.conv2d_transpose(h, 64*2, 5, strides=2, activation=tf.nn.tanh, name="dec_deconv2")
+      h = tf.layers.conv2d_transpose(h, 32*2, 6, strides=2, activation=tf.nn.tanh, name="dec_deconv3")
       self.y = tf.layers.conv2d_transpose(h, 1, 6, strides=2, activation=tf.nn.sigmoid, name="dec_deconv4")
       # print(self.y.get_shape())
       

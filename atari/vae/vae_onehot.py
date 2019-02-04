@@ -42,11 +42,13 @@ class ConvVAEOH(object):
 
       # '''
       # Encoder
-      h = tf.layers.conv2d(self.x, 32*2, 4, strides=2, padding="SAME", activation=tf.nn.relu, name="enc_conv1") #4x4
+      h = tf.layers.conv2d(self.x, 64//32, 3, strides=2, padding="SAME", activation=tf.nn.relu, name="enc_conv1") #4x4
+      h = tf.layers.batch_normalization(h, training=self.is_training)
       # print(h.get_shape())
-      h = tf.layers.conv2d(h, 64*2, 4, strides=2, padding="SAME", activation=tf.nn.relu, name="enc_conv2") #2x2
+      h = tf.layers.conv2d(h, 64//8, 3, strides=2, padding="SAME", activation=tf.nn.relu, name="enc_conv2") #2x2
+      h = tf.layers.batch_normalization(h, training=self.is_training)
       # print(h.get_shape())
-      h = tf.reshape(h, [-1, 2*2*64*2])
+      h = tf.reshape(h, [-1, 2*2*64//8])
       # self.z = tf.layers.dense(h, self.z_size, name="enc_fc_mu")
       # '''
       # '''
@@ -63,11 +65,14 @@ class ConvVAEOH(object):
       # hack = tf.layers.dense(self.z, 64, activation = tf.nn.sigmoid)
       # hack = tf.layers.dense(hack, 64, activation=tf.nn.sigmoid)
       # self.y = tf.reshape(hack, [-1, 8, 8, 1]) # works, is not amazing
-      h = tf.layers.dense(self.z, 4*64*2, name="dec_fc", activation = tf.nn.tanh)
-      h = tf.reshape(h, [-1, 1, 1, 4*64*2]) #2x2
+      h = tf.layers.dense(self.z, 2*64*2, name="dec_fc", activation = tf.nn.tanh)
+      h = tf.layers.batch_normalization(h, training=self.is_training)
+      h = tf.reshape(h, [-1, 1, 1, 2*64*2]) #2x2
       # self.y = tf.layers.conv2d_transpose(h, 1, 8, strides=2, padding="VALID", activation=tf.nn.sigmoid, name="dec_deconv_single") #8x8
       h = tf.layers.conv2d_transpose(h, 32*2, 4, strides=2, padding="SAME", activation=tf.nn.tanh, name="dec_deconv2") #4x4
-      h = tf.layers.conv2d_transpose(h, 8*2, 4, strides=2, padding="SAME", activation=tf.nn.tanh, name="dec_deconv3") #4x4
+      h = tf.layers.batch_normalization(h, training=self.is_training)
+      h = tf.layers.conv2d_transpose(h, 16*2, 4, strides=2, padding="SAME", activation=tf.nn.tanh, name="dec_deconv3") #4x4
+      h = tf.layers.batch_normalization(h, training=self.is_training)
       self.y = tf.layers.conv2d_transpose(h, 1, 4, strides=2, padding="SAME", activation=tf.nn.sigmoid, name="dec_deconv4") #8x8
       # self.y = tf.layers.conv2d(h, 1, 4, strides=1, padding="SAME", activation=tf.nn.relu, name="dec_conv") #8x8
       print("one_hot result shape:", self.y.get_shape())
@@ -110,8 +115,10 @@ class ConvVAEOH(object):
         self.optimizer = tf.train.AdamOptimizer(self.lr)
         grads = self.optimizer.compute_gradients(self.loss) # can potentially clip gradients here.
 
-        self.train_op = self.optimizer.apply_gradients(
-          grads, global_step=self.global_step, name='train_step')
+        self.update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS) 
+        with tf.control_dependencies(self.update_ops):
+          self.train_op = self.optimizer.apply_gradients(
+            grads, global_step=self.global_step, name='train_step')
 
       # initialize vars
       self.init = tf.global_variables_initializer()
